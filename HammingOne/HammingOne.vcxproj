@@ -77,7 +77,7 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="DataGenerator.cu" />
+    <CudaCompile Include="DataGenerator.cpp" />
     <CudaCompile Include="kernel.cu" />
   </ItemGroup>
   <ItemGroup>

@@ -1,80 +1,134 @@
-﻿
-#include "cuda_runtime.h"
+﻿#include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+#include <device_functions.h>
 
 #include <stdio.h>
 #include "DataGenerator.h"
+#include <cmath>
 
 //cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int length);
 
-__host__ __device__ char getBit(char data, int bit) {
-    return (data >> bit) & 1;
+template<class T>
+__host__ __device__ T getBit(T data, int bit) {
+	return (data >> bit) & 1;
 }
 
-__host__ __device__ bool compareData(char* firstVector, char* secondVector, int length) {
+template<class T>
+__host__ __device__ bool compareData(T* firstVector, T* secondVector, int length) {
 
-    bool differ = false;
+	bool differ = false;
+	int counter = 0;
+	for (int i = 0; i < length; i++)
+	{
+		counter += compareWord(firstVector[i], secondVector[i]);
+	}
 
-    for (size_t i = 0; i < length; i++)
-    {
-        for (size_t j = 0; j < 8; j++)
-        {
-            if (getBit(firstVector[i], j) != getBit(secondVector[i], j))
-            {
-                if (differ)
-                    return false;
-                differ = true;
-            }
-        }
-    }
-
-    return true;
+	return counter <= 1;
 }
 
-__global__ void compareKernel(char** vectors, int length, bool** result)
+__host__ __device__ int compareWord(unsigned first, unsigned second) {
+
+	int counter = 0;
+
+	for (int j = 0; j < sizeof(unsigned) * 8; j++)
+	{
+		if (getBit(first, j) != getBit(second, j))
+		{
+			counter++;
+		}
+	}
+
+	return counter;
+}
+
+__global__ void compareKernel(unsigned* vectors, unsigned* coalesced, int size, int length, bool* result)
 {
-    char* firstVector = vectors[blockDim.x];
-    char* secondVector = vectors[threadIdx.x];
+	int blocksPerModel = size / 1024 + 1;
+	int modelVectorIdx = (double)blockIdx.x / blocksPerModel;
+	int compareVectorIdx = (blockIdx.x % blocksPerModel) * length + threadIdx.x;
+	int mistakes = 0;
+	int copySeries = 0;
 
-    result[blockDim.x][threadIdx.x] = compareData(firstVector, secondVector, length);
+	__shared__ unsigned compareVectors[1024];
+	__shared__ unsigned modelVector[1024];
+
+	for (size_t i = 0; i < length; i++)
+	{
+		if (i % 1024 == 0) {
+
+			if(threadIdx.x + copySeries * 1024 < length)
+				modelVector[threadIdx.x] = vectors[modelVectorIdx * length + threadIdx.x + copySeries*1024];
+
+			copySeries++;
+			__syncthreads();
+		}
+
+		if (compareVectorIdx < size && mistakes < 2) {
+			compareVectors[threadIdx.x] = coalesced[i * size + compareVectorIdx];
+			mistakes += compareWord(modelVector[i], compareVectors[threadIdx.x]);
+		}
+
+		__syncthreads();
+	}
+
+	result[modelVectorIdx * size + compareVectorIdx] = mistakes <= 1 && compareVectorIdx < size && compareVectorIdx != modelVectorIdx;
 }
 
-__host__ void printData(char* data, int lenght) {
+void CheckHostResult(unsigned* data, int DATA_SIZE, int DATA_LENGTH) {
+	printf("HOST:\n");
+	int result = 0;
 
-    for (size_t i = 0; i < lenght; i++)
-    {
-        printf("%c", data[i]);
-    }
+	for (size_t i = 0; i < DATA_SIZE; i++)
+	{
+		for (size_t j = 0; j < DATA_SIZE; j++)
+		{
+			if (i <= j)
+				continue;
 
-    printf("\n");
+			int counter = 0;
+
+			for (size_t k = 0; k < DATA_LENGTH; k++)
+			{
+				counter += compareWord(data[i * DATA_LENGTH + k], data[j * DATA_LENGTH + k]);
+				if (counter > 1)
+					break;
+			}
+
+			if (counter < 2)
+				result++;
+		}
+	}
+
+	printf("Liczba par na hoście: %d\n", result);
 }
 
-__host__ void printComparison(char* firstVector, char* secondVector, int length) {
-    printf("Pierwszy wektor: \n");
-    printData(firstVector, length);
-    printf("Drugi wektor: \n");
-    printData(secondVector, length);
-    printf("\n");
-}
 
 int main()
 {
-    const int DATA_LENGTH = 4;
-    const int DATA_SIZE = 20000;
-    char** data = DataGenerator::GenerateRandomData(DATA_SIZE, DATA_LENGTH);
+    const int DATA_LENGTH = 1;
+    const int DATA_SIZE = 3000;
+	DataGenerator dataGenerator = DataGenerator(DATA_SIZE, DATA_LENGTH);
+	auto data = dataGenerator.vectors;
+	int blockCount = DATA_SIZE * (DATA_SIZE / 1024 + 1);
 
-    for (size_t i = 0; i < DATA_SIZE; i++)
-    {
-        for (size_t j = 0; j < DATA_SIZE; j++)
-        {
-            if (i == j)
-                continue;
+	CheckHostResult(data, DATA_SIZE, DATA_LENGTH);
 
-            if (compareData(data[i], data[j], DATA_LENGTH)) {
-                printComparison(data[i], data[j], DATA_LENGTH);
-            }
-        }
-    }
+    compareKernel<<<blockCount, 1024>>>(dataGenerator.dev_vectors, dataGenerator.dev_coalesced, DATA_SIZE, DATA_LENGTH, dataGenerator.dev_results);
+	
+	// Check for any errors launching the kernel
+	auto cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
+	}
+
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	// any errors encountered during the launch.
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching compareKernel!\n", cudaStatus);
+	}
+
+	printf("Liczba par na device: %d\n", dataGenerator.CalculateResults());
 
     return 0;
 }
