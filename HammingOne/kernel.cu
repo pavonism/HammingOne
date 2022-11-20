@@ -6,24 +6,9 @@
 #include "DataGenerator.h"
 #include <cmath>
 
-//cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int length);
-
 template<class T>
 __host__ __device__ T getBit(T data, int bit) {
 	return (data >> bit) & 1;
-}
-
-template<class T>
-__host__ __device__ bool compareData(T* firstVector, T* secondVector, int length) {
-
-	bool differ = false;
-	int counter = 0;
-	for (int i = 0; i < length; i++)
-	{
-		counter += compareWord(firstVector[i], secondVector[i]);
-	}
-
-	return counter <= 1;
 }
 
 __host__ __device__ int compareWord(unsigned first, unsigned second) {
@@ -45,7 +30,7 @@ __global__ void compareKernel(unsigned* vectors, unsigned* coalesced, int size, 
 {
 	int blocksPerModel = size / 1024 + 1;
 	int modelVectorIdx = (double)blockIdx.x / blocksPerModel;
-	int compareVectorIdx = (blockIdx.x % blocksPerModel) * length + threadIdx.x;
+	int compareVectorIdx = (blockIdx.x % blocksPerModel) * length * 1024 + threadIdx.x;
 	int mistakes = 0;
 	int copySeries = 0;
 
@@ -106,12 +91,11 @@ void CheckHostResult(unsigned* data, int DATA_SIZE, int DATA_LENGTH) {
 int main()
 {
     const int DATA_LENGTH = 1;
-    const int DATA_SIZE = 3000;
+    const int DATA_SIZE = 20000;
 	DataGenerator dataGenerator = DataGenerator(DATA_SIZE, DATA_LENGTH);
 	auto data = dataGenerator.vectors;
 	int blockCount = DATA_SIZE * (DATA_SIZE / 1024 + 1);
 
-	CheckHostResult(data, DATA_SIZE, DATA_LENGTH);
 
     compareKernel<<<blockCount, 1024>>>(dataGenerator.dev_vectors, dataGenerator.dev_coalesced, DATA_SIZE, DATA_LENGTH, dataGenerator.dev_results);
 	
@@ -129,6 +113,8 @@ int main()
 	}
 
 	printf("Liczba par na device: %d\n", dataGenerator.CalculateResults());
+
+	CheckHostResult(data, DATA_SIZE, DATA_LENGTH);
 
     return 0;
 }

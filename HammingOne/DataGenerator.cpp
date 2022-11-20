@@ -91,6 +91,9 @@ DataGenerator::DataGenerator(int size, int length)
 
 	vectors[0] = 123;
 	vectors[1] = 123;
+	vectors[1500] = 9524;
+	vectors[3456] = 9524;
+
 
 	ClearTableOnHost(results, size, size);
 	CopyToDevice<bool>(results, dev_results, size, size);
