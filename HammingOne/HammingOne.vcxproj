@@ -77,11 +77,16 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <CudaCompile Include="algorithm.cu" />
     <CudaCompile Include="DataGenerator.cpp" />
     <CudaCompile Include="kernel.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DataGenerator.h" />
+    <ClInclude Include="kernel.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="arguments.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

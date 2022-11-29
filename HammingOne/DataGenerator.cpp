@@ -76,14 +76,18 @@ void DataGenerator::ClearTableOnHost(T* table, int size, int length)
 	memset(table, 0, (long long)size * length * sizeof(T));
 }
 
-
+void DataGenerator::ExitWrongFile() {
+	fprintf(stderr, MSG_WRONG_FILE_FORMAT);
+	exit(1);
+}
 
 DataGenerator::DataGenerator(int size, int length)
 {
 	vectors = GenerateRandomData(size, length);
-	this->size = size;
-	this->length = length;
+	AllocateData(size, length);
+}
 
+void DataGenerator::AllocateData(int size, int length) {
 	AllocateHost(results, size, size);
 	AllocateDevice(dev_vectors, size, length);
 	AllocateDevice(dev_coalesced, size, length);
@@ -99,6 +103,118 @@ DataGenerator::DataGenerator(int size, int length)
 	CopyToDevice<bool>(results, dev_results, size, size);
 	CopyToDevice(vectors, dev_vectors, size, length);
 	CreateCoalescedData(vectors, size, length);
+}
+
+void DataGenerator::AllocateVectors(int size, int length) {
+	this->size = size;
+	this->length = length;
+
+	AllocateHost(vectors, size, length);
+}
+
+void DataGenerator::PrintVectors() {
+
+	for (size_t i = 0; i < 2; i++)
+	{
+		for (size_t j = 0; j < length; j++)
+		{
+			for (size_t bit = 0; bit < 32; bit++)
+			{
+				printf("%d", (this->vectors[i * length + j] >> (32 - bit - 1)) & 1);
+
+			}
+		}
+
+		printf("\n");
+	}
+}
+
+DataGenerator::DataGenerator(char* path) {
+
+	FILE* file = fopen(path, "r");
+	char buf[FILE_BUFFER_LENGTH];
+	long vectorsCount = 0;
+	long vectorLength = 0;
+	long currentVector = 0;
+	long currentLength = 0;
+	size_t readBytes;
+
+	if (file == NULL)
+		ExitWrongFile();
+
+	// Read parameters 
+	readBytes = fread(buf, sizeof(char), FILE_BUFFER_LENGTH, file);
+	int seeker = 0;
+	int i = 0;
+
+	// Vectors count
+	while (buf[i] != ',') i++;
+	buf[i] = '\0';
+	seeker = i + 1;
+	vectorsCount = atol(buf);
+
+	// Vectors length
+	while (buf[i] != 0x0D && buf[i] != 0x0A) i++;
+	buf[i] = '\0';
+	vectorLength = atol(buf + seeker);
+
+	printf("%ld, %ld\n", vectorsCount, vectorLength);
+	AllocateVectors(vectorsCount, vectorLength / 32 + 1);
+	char* currentVectorBits = new char[vectorLength + 1];
+	memset(currentVectorBits, 0, (vectorLength + 1) * sizeof(char));
+	seeker = i + 1;
+	long long vectorsIt = 0;
+
+	do {
+
+		for (currentVector; currentVector < vectorsCount && seeker < readBytes;)
+		{
+			for (currentLength; currentLength < vectorLength && seeker < readBytes;)
+			{
+				if(buf[seeker] != 0x0D && buf[seeker] != 0x0A)
+					currentVectorBits[currentLength++] = buf[seeker];
+				seeker++;
+
+				if (currentLength % 32 == 0 && currentLength > 0) {
+
+					unsigned word = 0;
+
+					for (int bit = 0; bit < 32; bit++)
+					{
+						if (currentVectorBits[currentLength - 32 + bit] == '1')
+							word = word | (1 << (32 - bit - 1));
+					}
+
+					this->vectors[vectorsIt++] = word;
+				}
+			}
+			if (seeker < readBytes) {
+
+				int lastBits = currentLength % 32;
+				if (lastBits != 0) {
+					unsigned word = 0;
+
+					for (int bit = 0; bit < lastBits; bit++)
+					{
+						if (currentVectorBits[currentLength - lastBits + bit] == '1')
+							word = word | (1 << (32 - bit - 1));
+					}
+
+					this->vectors[vectorsIt++] = word;
+				}
+
+				currentLength = 0;
+				currentVector++;
+				memset(currentVectorBits, 0, vectorLength * sizeof(char));
+			}
+		}
+
+		seeker = 0;
+
+	} while ((readBytes = fread(buf, sizeof(char), FILE_BUFFER_LENGTH, file)) > 0);
+
+	delete[] currentVectorBits;
+	fclose(file);
 }
 
 DataGenerator::~DataGenerator() {
@@ -126,7 +242,7 @@ unsigned* DataGenerator::GenerateRandomData(int size, int length) {
 	return data;
 }
 
-template<class T> void 
+template<class T> void
 DataGenerator::CreateCoalescedData(T* table, int size, int length) {
 
 	T* coalesced = new T[size * length];
