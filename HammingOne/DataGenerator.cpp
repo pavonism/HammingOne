@@ -39,13 +39,13 @@ void DataGenerator::CopyToDevice(T* source, T* destination, int size, int length
 template<class T>
 void DataGenerator::AllocateHost(T*& destination, int size, int length)
 {
-	destination = new T[size * length];
+	destination = new T[(long long)size * length];
 }
 
 template<class T>
 void DataGenerator::AllocateDevice(T*& destination, int size, int length)
 {
-	auto cudaStatus = cudaMalloc((void**)&destination, size * sizeof(T) * length);
+	auto cudaStatus = cudaMalloc((void**)&destination, (long long)size * sizeof(T) * length);
 	CheckCudaError(cudaStatus, "AllocateDevice");
 }
 
@@ -73,7 +73,7 @@ void DataGenerator::FreeDevice(T*& table)
 template<class T>
 void DataGenerator::ClearTableOnHost(T* table, int size, int length)
 {
-	memset(table, 0, size * length * sizeof(T));
+	memset(table, 0, (long long)size * length * sizeof(T));
 }
 
 
@@ -91,8 +91,8 @@ DataGenerator::DataGenerator(int size, int length)
 
 	vectors[0] = 123;
 	vectors[1] = 123;
-	vectors[1500] = 9524;
-	vectors[3456] = 9524;
+	vectors[1500] = 123;
+	vectors[1501] = 123;
 
 
 	ClearTableOnHost(results, size, size);
