@@ -15,6 +15,7 @@ private:
 
 	void Free();
 	
+	void ReadDataFromFile(char* path);
 	void PrintVectors();
 	void AllocateVectors(int size, int length);
 	void AllocateData(int size, int length);
@@ -40,7 +41,6 @@ public:
 	//DataGenerator(T* vectors, int size, int length);
 	unsigned* GenerateRandomData(int size, int length);
 	int CalculateResults();
-	void ReadDataFromFile(char* path);
 };
 
 #endif // !DataGenerator

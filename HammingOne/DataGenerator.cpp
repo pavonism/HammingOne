@@ -52,22 +52,22 @@ void DataGenerator::AllocateDevice(T*& destination, int size, int length)
 template<class T>
 void DataGenerator::FreeHost(T*& table)
 {
-	if (table == nullptr)
+	if (table == NULL)
 		return;
 
 	delete[] table;
-	table = nullptr;
+	table = NULL;
 }
 
 template<class T>
 void DataGenerator::FreeDevice(T*& table)
 {
-	if (table == nullptr)
+	if (table == NULL)
 		return;
 
 	auto status = cudaFree(table);
 	CheckCudaError(status, "FreeDevice");
-	table = nullptr;
+	table = NULL;
 }
 
 template<class T>
@@ -131,6 +131,20 @@ void DataGenerator::PrintVectors() {
 
 DataGenerator::DataGenerator(char* path) {
 
+	vectors = NULL;
+	results = NULL;
+	dev_results = NULL;
+	dev_vectors = NULL;
+	dev_coalesced = NULL;
+
+	ReadDataFromFile(path);
+}
+
+DataGenerator::~DataGenerator() {
+	Free();
+}
+
+void DataGenerator::ReadDataFromFile(char* path) {
 	FILE* file = fopen(path, "r");
 	char buf[FILE_BUFFER_LENGTH];
 	long vectorsCount = 0;
@@ -171,7 +185,7 @@ DataGenerator::DataGenerator(char* path) {
 		{
 			for (currentLength; currentLength < vectorLength && seeker < readBytes;)
 			{
-				if(buf[seeker] != 0x0D && buf[seeker] != 0x0A)
+				if (buf[seeker] != 0x0D && buf[seeker] != 0x0A)
 					currentVectorBits[currentLength++] = buf[seeker];
 				seeker++;
 
@@ -215,10 +229,6 @@ DataGenerator::DataGenerator(char* path) {
 
 	delete[] currentVectorBits;
 	fclose(file);
-}
-
-DataGenerator::~DataGenerator() {
-	Free();
 }
 
 unsigned* DataGenerator::GenerateRandomData(int size, int length) {
