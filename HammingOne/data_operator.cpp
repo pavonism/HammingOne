@@ -1,20 +1,21 @@
-#include "DataGenerator.h"
-#include <random>
+#include "data_operator.h"
 
-void DataGenerator::CheckCudaError(cudaError_t cudaStatus, char* reason) {
+#pragma region Private
+
+void DataOperator::CheckCudaError(cudaError_t cudaStatus, char* reason) {
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, reason);
 		exit(1);
 	}
 }
 
-void DataGenerator::SetDevice()
+void DataOperator::SetDevice()
 {
 	auto cudaStatus = cudaSetDevice(0);
 	CheckCudaError(cudaStatus, "SetDevice");
 }
 
-void DataGenerator::Free() {
+void DataOperator::Free() {
 	FreeHost(vectors);
 	FreeHost(results);
 	FreeDevice(dev_vectors);
@@ -23,34 +24,34 @@ void DataGenerator::Free() {
 }
 
 template<class T>
-void DataGenerator::CopyToHost(T* source, T* destination, int size, int length)
+void DataOperator::CopyToHost(T* source, T* destination, int size, int length)
 {
 	auto cudaStatus = cudaMemcpy(destination, source, size * sizeof(T) * length, cudaMemcpyDeviceToHost);
 	CheckCudaError(cudaStatus, "CopyToHost");
 }
 
 template<class T>
-void DataGenerator::CopyToDevice(T* source, T* destination, int size, int length)
+void DataOperator::CopyToDevice(T* source, T* destination, int size, int length)
 {
 	auto cudaStatus = cudaMemcpy(destination, source, size * sizeof(T) * length, cudaMemcpyHostToDevice);
 	CheckCudaError(cudaStatus, "CopyToHost");
 }
 
 template<class T>
-void DataGenerator::AllocateHost(T*& destination, int size, int length)
+void DataOperator::AllocateHost(T*& destination, int size, int length)
 {
 	destination = new T[(long long)size * length];
 }
 
 template<class T>
-void DataGenerator::AllocateDevice(T*& destination, int size, int length)
+void DataOperator::AllocateDevice(T*& destination, int size, int length)
 {
 	auto cudaStatus = cudaMalloc((void**)&destination, (long long)size * sizeof(T) * length);
 	CheckCudaError(cudaStatus, "AllocateDevice");
 }
 
 template<class T>
-void DataGenerator::FreeHost(T*& table)
+void DataOperator::FreeHost(T*& table)
 {
 	if (table == NULL)
 		return;
@@ -60,7 +61,7 @@ void DataGenerator::FreeHost(T*& table)
 }
 
 template<class T>
-void DataGenerator::FreeDevice(T*& table)
+void DataOperator::FreeDevice(T*& table)
 {
 	if (table == NULL)
 		return;
@@ -71,74 +72,37 @@ void DataGenerator::FreeDevice(T*& table)
 }
 
 template<class T>
-void DataGenerator::ClearTableOnHost(T* table, int size, int length)
+void DataOperator::ClearTableOnHost(T* table, int size, int length)
 {
 	memset(table, 0, (long long)size * length * sizeof(T));
 }
 
-void DataGenerator::ExitWrongFile() {
-	fprintf(stderr, MSG_WRONG_FILE_FORMAT);
-	exit(1);
+template<class T> void
+DataOperator::CreateCoalescedData(T* table, int size, int length) {
+
+	T* coalesced = new T[size * length];
+	int counter = 0;
+
+	for (size_t j = 0; j < length; j++)
+	{
+		for (size_t i = 0; i < size; i++)
+		{
+			coalesced[counter++] = table[i * length + j];
+		}
+	}
+
+	CopyToDevice(coalesced, dev_coalesced, size, length);
+	delete[] coalesced;
 }
 
-DataGenerator::DataGenerator(int size, int length)
-{
-	vectors = GenerateRandomData(size, length);
-	CopyToDevice();
-}
-
-void DataGenerator::CopyToDevice() {
-	AllocateHost(results, size, 1);
-	AllocateDevice(dev_vectors, size, length);
-	AllocateDevice(dev_coalesced, size, length);
-	AllocateDevice(dev_results, size, 1);
-
-	ClearTableOnHost(results, size, 1);
-	CopyToDevice<long>(results, dev_results, size, 1);
-	CopyToDevice(vectors, dev_vectors, size, length);
-	CreateCoalescedData(vectors, size, length);
-}
-
-void DataGenerator::AllocateVectors(int size, int length) {
+void DataOperator::AllocateVectors(int size, int length) {
 	this->size = size;
 	this->length = length;
 
 	AllocateHost(vectors, size, length);
 }
 
-void DataGenerator::PrintVectors() {
-
-	for (size_t i = 0; i < size; i++)
-	{
-		for (size_t j = 0; j < length; j++)
-		{
-			for (size_t bit = 0; bit < 32; bit++)
-			{
-				printf("%d", (this->vectors[i * length + j] >> (32 - bit - 1)) & 1);
-
-			}
-		}
-
-		printf("\n");
-	}
-}
-
-DataGenerator::DataGenerator(char* path) {
-
-	vectors = NULL;
-	results = NULL;
-	dev_results = NULL;
-	dev_vectors = NULL;
-	dev_coalesced = NULL;
-
-	ReadDataFromFile(path);
-}
-
-DataGenerator::~DataGenerator() {
-	Free();
-}
-
-void DataGenerator::ReadDataFromFile(char* path) {
+void DataOperator::ReadDataFromFile(char* path) {
 	FILE* file = fopen(path, "r");
 	char buf[FILE_BUFFER_LENGTH];
 	long vectorsCount = 0;
@@ -185,7 +149,7 @@ void DataGenerator::ReadDataFromFile(char* path) {
 
 				if (currentLength % 32 == 0 && currentLength > 0) {
 
-					unsigned word = 0;
+					uint_fast32_t word = 0;
 
 					for (int bit = 0; bit < 32; bit++)
 					{
@@ -200,7 +164,7 @@ void DataGenerator::ReadDataFromFile(char* path) {
 
 				int lastBits = currentLength % 32;
 				if (lastBits != 0) {
-					unsigned word = 0;
+					uint_fast32_t word = 0;
 
 					for (int bit = 0; bit < lastBits; bit++)
 					{
@@ -225,67 +189,79 @@ void DataGenerator::ReadDataFromFile(char* path) {
 	fclose(file);
 }
 
-unsigned* DataGenerator::GenerateRandomData(int size, int length) {
+void DataOperator::ExitWrongFile() {
+	fprintf(stderr, MSG_WRONG_FILE_FORMAT);
+	exit(1);
+}
+#pragma endregion Private
 
-	if (size <= 0 || length <= 0)
-		return nullptr;
+#pragma region Public
+DataOperator::DataOperator(char* path) {
 
-	unsigned* data = new unsigned[size * length];
-	std::random_device engine;
-	unsigned randomBytes;
+	vectors = NULL;
+	results = NULL;
+	dev_results = NULL;
+	dev_vectors = NULL;
+	dev_coalesced = NULL;
 
-	for (size_t i = 0; i < size; i++)
-	{
-		for (size_t j = 0; j < length; j++)
-		{
-			randomBytes = engine();
-			data[i * length + j] = randomBytes;
-		}
-	}
-
-	return data;
+	ReadDataFromFile(path);
 }
 
-template<class T> void
-DataGenerator::CreateCoalescedData(T* table, int size, int length) {
+void DataOperator::CopyToDevice() {
+	AllocateHost(results, size, 1);
+	AllocateDevice(dev_vectors, size, length);
+	AllocateDevice(dev_coalesced, size, length);
+	AllocateDevice(dev_results, size, 1);
 
-	T* coalesced = new T[size * length];
-	int counter = 0;
-
-	for (size_t j = 0; j < length; j++)
-	{
-		for (size_t i = 0; i < size; i++)
-		{
-			coalesced[counter++] = table[i * length + j];
-		}
-	}
-
-	CopyToDevice(coalesced, dev_coalesced, size, length);
+	ClearTableOnHost(results, size, 1);
+	CopyToDevice<long>(results, dev_results, size, 1);
+	CopyToDevice(vectors, dev_vectors, size, length);
+	CreateCoalescedData(vectors, size, length);
 }
 
-int DataGenerator::CalculateResults() {
+DataOperator::~DataOperator() {
+	Free();
+}
+
+long DataOperator::CalculateResultsOnHost() {
 
 	CopyToHost(dev_results, results, size, 1);
 
 	int result = 0;
 	for (size_t i = 0; i < size; i++)
 	{
-		result+=results[i];
+		result += results[i];
 	}
 
 	return result;
 }
 
-void DataGenerator::CopyResults() {
+void DataOperator::PrintVectors() {
+
+	for (size_t i = 0; i < size; i++)
+	{
+		for (size_t j = 0; j < length; j++)
+		{
+			for (size_t bit = 0; bit < 32; bit++)
+			{
+				printf("%d", (this->vectors[i * length + j] >> (32 - bit - 1)) & 1);
+
+			}
+		}
+
+		printf("\n");
+	}
+}
+
+void DataOperator::CopyResults() {
 	CopyToHost(dev_results, results, size, 1);
 }
 
-
-long DataGenerator::GetSize() {
+long DataOperator::GetSize() {
 	return this->size;
 }
 
-
-long DataGenerator::GetLength() {
+long DataOperator::GetLength() {
 	return this->length;
 }
+#pragma endregion Public

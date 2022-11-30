@@ -1,23 +1,22 @@
 #pragma once
-#ifndef DataGenerator
-
+#ifndef DATA_OPERATOR
+#define DATA_OPERATOR
 #include "cuda_runtime.h"
+#include <random>
 
 #define MSG_WRONG_FILE_FORMAT "Wrong file format! Terminating...\n"
 #define FILE_BUFFER_LENGTH 1024
+#define BYTE_LENGTH 8
 
-class DataGenerator {
+class DataOperator {
 private:
 	long size;
 	long length;
+
 	void CheckCudaError(cudaError_t cudaStatus, char* reason);
 	void SetDevice();
-
 	void Free();
-	
-	void ReadDataFromFile(char* path);
-	void PrintVectors();
-	void AllocateVectors(int size, int length);
+
 	template<class T> void CopyToHost(T* source, T* destination, int size, int length);
 	template<class T> void CopyToDevice(T* source, T* destination, int size, int length);
 	template<class T> void AllocateHost(T*& destination, int size, int length);
@@ -26,24 +25,23 @@ private:
 	template<class T> void FreeDevice(T*& table);
 	template<class T> void ClearTableOnHost(T* table, int size, int length);
 	template<class T> void CreateCoalescedData(T* table, int size, int length);
+	void AllocateVectors(int size, int length);
 	void ExitWrongFile();
+	void ReadDataFromFile(char* path);
 public: 
-	unsigned* dev_coalesced;
-	unsigned* dev_vectors;
+	uint_fast32_t* dev_coalesced;
+	uint_fast32_t* dev_vectors;
 	long* dev_results;
-	unsigned* vectors;
+	uint_fast32_t* vectors;
 	long* results;
 
-	DataGenerator(int size, int length);
-	DataGenerator(char* path);
-	~DataGenerator();
-	//DataGenerator(T* vectors, int size, int length);
-	unsigned* GenerateRandomData(int size, int length);
-	int CalculateResults();
-	void CopyResults();
+	DataOperator(char* path);
 	void CopyToDevice();
+	~DataOperator();
+	long CalculateResultsOnHost();
+	void PrintVectors();
+	void CopyResults();
 	long GetSize();
 	long GetLength();
 };
-
-#endif // !DataGenerator
+#endif // !DATA_OPERATOR
