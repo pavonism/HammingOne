@@ -22,21 +22,23 @@ __global__ void compareKernel(uint_fast32_t* vectors, int size, int length, long
 	long long modelVectorIdx = blockIdx.x * 1024 + threadIdx.x;
 	long pairs = 0;
 
-	for (int i = modelVectorIdx + 1; i < size; i++)
-	{
-		int mistakes = 0;
 
-		for (int word = 0; word < length; word++)
+	if(modelVectorIdx < size)
+		for (int i = 0; i < modelVectorIdx; i++)
 		{
-			mistakes += compareWord(vectors[word * size + i], vectors[word * size + modelVectorIdx]);
+			int mistakes = 0;
 
-			if (mistakes > 1)
-				break;
+			for (int word = 0; word < length; word++)
+			{
+				mistakes += compareWord(vectors[word * size + i], vectors[word * size + modelVectorIdx]);
+
+				if (mistakes > 1)
+					break;
+			}
+
+			if (mistakes == 1)
+				pairs++;
 		}
-
-		if (mistakes <= 1)
-			pairs++;
-	}
 
 	result[modelVectorIdx] = pairs;
 }
