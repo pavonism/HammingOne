@@ -22,50 +22,70 @@ __host__ __device__ int compareWord(unsigned first, unsigned second) {
 	return 2;
 }
 
-__global__ void compareKernel(unsigned* vectors, unsigned* coalesced, int size, int length, bool* result)
+__global__ void compareKernel(unsigned* vectors, int size, int length, long* result)
 {
-	int blocksPerModel = size / 1024 + 1;
-	long long modelVectorIdx = (double)blockIdx.x / blocksPerModel;
-	long long compareVectorIdx = (blockIdx.x % blocksPerModel) * length * 1024 + threadIdx.x;
-	int mistakes = 0;
-	int zombie = 0;
-	int copySeries = 0;
+	long long modelVectorIdx = blockIdx.x * 1024 + threadIdx.x;
+	long pairs = 0;
 
-	__shared__ unsigned compareVectors[1024];
-	__shared__ unsigned modelVector[1024];
-	__shared__ int finished[1];
-
-	if (threadIdx.x == 0)
-		*finished = 0;
-
-	for (size_t i = 0; i < length; i++)
+	for (int i = modelVectorIdx + 1; i < size; i++)
 	{
-		if (i % 1024 == 0) {
-			__syncthreads();
-			if (threadIdx.x + copySeries * 1024 < length)
-				modelVector[threadIdx.x] = vectors[modelVectorIdx * length + threadIdx.x + copySeries * 1024];
+		int mistakes = 0;
 
-			copySeries++;
-		}
-
-		if (zombie == 1)
-			continue;
-
-		if (compareVectorIdx < size && mistakes < 2) {
-			compareVectors[threadIdx.x] = coalesced[i * size + compareVectorIdx];
-			mistakes += compareWord(modelVector[i], compareVectors[threadIdx.x]);
-		}
-
-		if (compareVectorIdx >= size || mistakes > 1)
+		for (int word = 0; word < length; word++)
 		{
-			zombie = 1;
-			atomicAdd(finished, 1);
+			__syncthreads();
+			mistakes += compareWord(vectors[word * size + i], vectors[word * size + modelVectorIdx]);
+
+			if (mistakes > 1)
+				break;
 		}
 
-		if (*finished == 1024)
-			break;
+		if (mistakes <= 1)
+			pairs++;
 	}
 
-	__syncthreads();
-	result[modelVectorIdx * size + compareVectorIdx] = mistakes <= 1 && compareVectorIdx < size&& compareVectorIdx != modelVectorIdx;
+	result[modelVectorIdx] = pairs;
+
+	//long long compareVectorIdx = (blockIdx.x % blocksPerModel) * length * 1024 + threadIdx.x;
+	//int mistakes = 0;
+	//int zombie = 0;
+	//int copySeries = 0;
+
+	//__shared__ unsigned compareVectors[1024];
+	//__shared__ unsigned modelVector[1024];
+	//__shared__ int finished[1];
+
+	//if (threadIdx.x == 0)
+	//	*finished = 0;
+
+	//for (size_t i = 0; i < length; i++)
+	//{
+	//	if (i % 1024 == 0) {
+	//		__syncthreads();
+	//		if (threadIdx.x + copySeries * 1024 < length)
+	//			modelVector[threadIdx.x] = vectors[modelVectorIdx * length + threadIdx.x + copySeries * 1024];
+
+	//		copySeries++;
+	//	}
+
+	//	if (zombie == 1)
+	//		continue;
+
+	//	if (compareVectorIdx < size && mistakes < 2) {
+	//		compareVectors[threadIdx.x] = coalesced[i * size + compareVectorIdx];
+	//		mistakes += compareWord(modelVector[i], compareVectors[threadIdx.x]);
+	//	}
+
+	//	if (compareVectorIdx >= size || mistakes > 1)
+	//	{
+	//		zombie = 1;
+	//		atomicAdd(finished, 1);
+	//	}
+
+	//	if (*finished == 1024)
+	//		break;
+	//}
+
+	//__syncthreads();
+	//result[modelVectorIdx * size + compareVectorIdx] = mistakes <= 1 && compareVectorIdx < size&& compareVectorIdx != modelVectorIdx;
 }

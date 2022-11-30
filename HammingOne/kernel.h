@@ -5,6 +5,8 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <device_functions.h>
+#include <thrust/reduce.h>
+#include <thrust/execution_policy.h>
 
 // System Headers
 #include <stdio.h>
@@ -44,7 +46,7 @@ void CheckArguments(int argc, char** argv);
 template<class T> __host__ __device__ T getBit(T data, int bit);
 __host__ __device__ bool IsPowerOfTwo(unsigned word);
 __host__ __device__ int compareWord(unsigned first, unsigned second);
-__global__ void compareKernel(unsigned* vectors, unsigned* coalesced, int size, int length, bool* result);
+__global__ void compareKernel(unsigned* vectors, int size, int length, long* result);
 #pragma endregion CUDA Functionality 
 
 #endif // !KERNEL

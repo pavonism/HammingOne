@@ -84,23 +84,17 @@ void DataGenerator::ExitWrongFile() {
 DataGenerator::DataGenerator(int size, int length)
 {
 	vectors = GenerateRandomData(size, length);
-	AllocateData(size, length);
+	CopyToDevice();
 }
 
-void DataGenerator::AllocateData(int size, int length) {
-	AllocateHost(results, size, size);
+void DataGenerator::CopyToDevice() {
+	AllocateHost(results, size, 1);
 	AllocateDevice(dev_vectors, size, length);
 	AllocateDevice(dev_coalesced, size, length);
-	AllocateDevice(dev_results, size, size);
+	AllocateDevice(dev_results, size, 1);
 
-	vectors[0] = 123;
-	vectors[1] = 123;
-	vectors[1500] = 123;
-	vectors[1501] = 123;
-
-
-	ClearTableOnHost(results, size, size);
-	CopyToDevice<bool>(results, dev_results, size, size);
+	ClearTableOnHost(results, size, 1);
+	CopyToDevice<long>(results, dev_results, size, 1);
 	CopyToDevice(vectors, dev_vectors, size, length);
 	CreateCoalescedData(vectors, size, length);
 }
@@ -114,7 +108,7 @@ void DataGenerator::AllocateVectors(int size, int length) {
 
 void DataGenerator::PrintVectors() {
 
-	for (size_t i = 0; i < 2; i++)
+	for (size_t i = 0; i < size; i++)
 	{
 		for (size_t j = 0; j < length; j++)
 		{
@@ -172,8 +166,8 @@ void DataGenerator::ReadDataFromFile(char* path) {
 	buf[i] = '\0';
 	vectorLength = atol(buf + seeker);
 
-	printf("%ld, %ld\n", vectorsCount, vectorLength);
-	AllocateVectors(vectorsCount, vectorLength / 32 + 1);
+	//printf("%ld, %ld\n", vectorsCount, vectorLength);
+	AllocateVectors(vectorsCount, ceil((double)vectorLength / 32));
 	char* currentVectorBits = new char[vectorLength + 1];
 	memset(currentVectorBits, 0, (vectorLength + 1) * sizeof(char));
 	seeker = i + 1;
@@ -271,17 +265,27 @@ DataGenerator::CreateCoalescedData(T* table, int size, int length) {
 
 int DataGenerator::CalculateResults() {
 
-	CopyToHost(dev_results, results, size, size);
+	CopyToHost(dev_results, results, size, 1);
 
 	int result = 0;
 	for (size_t i = 0; i < size; i++)
 	{
-		for (size_t j = 0; j < size; j++)
-		{
-			if (i < j && results[i * size + j])
-				result++;
-		}
+		result+=results[i];
 	}
 
 	return result;
+}
+
+void DataGenerator::CopyResults() {
+	CopyToHost(dev_results, results, size, 1);
+}
+
+
+long DataGenerator::GetSize() {
+	return this->size;
+}
+
+
+long DataGenerator::GetLength() {
+	return this->length;
 }
