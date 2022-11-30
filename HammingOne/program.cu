@@ -28,11 +28,6 @@ arguments_t InitializeArguments(int argc, char** argv) {
 	return args;
 }
 
-
-void RunProgram(arguments_t args) {
-
-}
-
 void PrintUsage(FILE* dest, char* programName) {
 	fprintf(dest, MSG_DESC);
 	fprintf(dest, MSG_USAGE, programName);

@@ -47,7 +47,6 @@ typedef struct arguments {
 
 void CheckArguments(int argc, char** argv);
 arguments_t InitializeArguments(int argc, char** argv);
-void RunProgram(arguments_t args);
 void PrintUsage(FILE* , char* );
 void ExitByReason(char* programName, char* message);
 void ExitWithWrongNumberOfArgs(char* programName);
