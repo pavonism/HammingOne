@@ -203,6 +203,8 @@ DataOperator::DataOperator(char* path) {
 	dev_results = NULL;
 	dev_vectors = NULL;
 	dev_coalesced = NULL;
+	pairs = NULL;
+	dev_pairs = NULL;
 
 	ReadDataFromFile(path);
 }
@@ -236,19 +238,62 @@ long DataOperator::CalculateResultsOnHost() {
 	return result;
 }
 
+void DataOperator::AllocatePairs() {
+
+	auto vectorPairsWordsCount = GetPairsLength();
+	AllocateHost(pairs, size, vectorPairsWordsCount);
+	ClearTableOnHost(pairs, size, vectorPairsWordsCount);
+	AllocateDevice(dev_pairs, size, vectorPairsWordsCount);
+	CopyToDevice(pairs, dev_pairs, size, vectorPairsWordsCount);
+}
+
+template<class T>
+T DataOperator::GetBit(T data, int bit) {
+	return (data >> bit) & 1;
+}
+
+void DataOperator::PrintVector(int indx) {
+
+	for (size_t j = 0; j < length; j++)
+	{
+		for (size_t bit = 0; bit < 32; bit++)
+		{
+			printf("%d", (this->vectors[indx * length + j] >> (32 - bit - 1)) & 1);
+		}
+	}
+}
+
+void DataOperator::PrintPairs() {
+
+	auto vectorPairsWordsCount = GetPairsLength();
+	CopyToHost(dev_pairs, pairs, size, vectorPairsWordsCount);
+	int pairs = 0;
+
+	for (int vector = 0; vector < size; vector++)
+	{
+		for (size_t word = 0; word < vectorPairsWordsCount; word++)
+		{
+			for (size_t bit = 0; bit < WORD_BIT_LENGTH; bit++)
+			{
+				if (GetBit(this->pairs[vector * vectorPairsWordsCount + word], bit)) {
+					printf("Pair %d:\n", pairs++);
+					printf("Vector 1:\n");
+					PrintVector(vector);
+					printf("\n");
+					printf("Vector 2:\n");
+					PrintVector(word * WORD_BIT_LENGTH + bit);
+					printf("\n");
+				}
+			}
+		}
+	}
+}
+
 void DataOperator::PrintVectors() {
 
 	for (size_t i = 0; i < size; i++)
 	{
-		for (size_t j = 0; j < length; j++)
-		{
-			for (size_t bit = 0; bit < 32; bit++)
-			{
-				printf("%d", (this->vectors[i * length + j] >> (32 - bit - 1)) & 1);
-
-			}
-		}
-
+		PrintVector(i);
 		printf("\n");
 	}
 }
@@ -263,5 +308,9 @@ long DataOperator::GetSize() {
 
 long DataOperator::GetLength() {
 	return this->length;
+}
+
+long DataOperator::GetPairsLength() {
+	return ceil((double)this->size / sizeof(uint_fast32_t) / BYTE_LENGTH);
 }
 #pragma endregion Public

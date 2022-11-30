@@ -17,10 +17,13 @@ int main(int argc, char** argv)
 	dataSource.CopyToDevice();
 	MeasureStop(&start, &stop);
 
+	if (args.showPairs)
+		dataSource.AllocatePairs();
+	
 	int blockCount = ceil((double)dataSource.GetSize() / 1024);
 
 	MeasureStart(&start, "Calculating on device...\n");
-	compareKernel << <blockCount, 1024 >> > (dataSource.dev_coalesced, dataSource.GetSize(), dataSource.GetLength(), dataSource.dev_results);
+	compareKernel << <blockCount, 1024 >> > (dataSource.dev_coalesced, dataSource.GetSize(), dataSource.GetLength(), dataSource.dev_results, dataSource.dev_pairs, dataSource.GetPairsLength());
 	auto cudaStatus = cudaGetLastError();
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
@@ -32,14 +35,13 @@ int main(int argc, char** argv)
 	}
 	MeasureStop(&start, &stop);
 
-	MeasureStart(&start, "Copying results to host...\n");
-	dataSource.CopyResults();
-	MeasureStop(&start, &stop);
-
 	MeasureStart(&start, "Calculating pairs...\n");
-	long result = thrust::reduce(thrust::host, dataSource.results, dataSource.results + dataSource.GetSize(), 0);
+	long result = thrust::reduce(thrust::device, dataSource.dev_results, dataSource.dev_results + dataSource.GetSize(), 0);
 	MeasureStop(&start, &stop);
 	printf("Number of pairs: %d\n", result);
+
+	if(args.showPairs)
+		dataSource.PrintPairs();
 
 	if (args.showCPUOutput) {
 		MeasureStart(&start, "Calculating pairs on host...\n");

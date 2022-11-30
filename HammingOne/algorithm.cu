@@ -17,7 +17,7 @@ __host__ __device__ int compareWord(uint_fast32_t first, uint_fast32_t second) {
 	return 2;
 }
 
-__global__ void compareKernel(uint_fast32_t* vectors, int size, int length, long* result)
+__global__ void compareKernel(uint_fast32_t* vectors, int size, int length, long* result, uint_fast32_t* pairsResult, long vectorPairsWordsCount)
 {
 	long long modelVectorIdx = blockIdx.x * 1024 + threadIdx.x;
 	long pairs = 0;
@@ -37,7 +37,14 @@ __global__ void compareKernel(uint_fast32_t* vectors, int size, int length, long
 			}
 
 			if (mistakes == 1)
+			{
 				pairs++;
+
+				if (pairsResult != NULL) {
+					int pairIndxInWord = i % vectorPairsWordsCount;
+					pairsResult[modelVectorIdx * vectorPairsWordsCount + i / vectorPairsWordsCount] |= (1 << pairIndxInWord);
+				}
+			}
 		}
 
 	result[modelVectorIdx] = pairs;

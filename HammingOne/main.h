@@ -61,7 +61,7 @@ void MeasureStop(cudaEvent_t* start, cudaEvent_t* stop);
 #pragma region CUDA Functionality 
 __host__ __device__ bool IsPowerOfTwo(uint_fast32_t word);
 __host__ __device__ int compareWord(uint_fast32_t first, uint_fast32_t second);
-__global__ void compareKernel(uint_fast32_t* vectors, int size, int length, long* result);
+__global__ void compareKernel(uint_fast32_t* vectors, int size, int length, long* result, uint_fast32_t* pairs, long vectorPairsWordsCount);
 __host__ int CheckHostResult(uint_fast32_t* data, int size, int length);
 #pragma endregion CUDA Functionality 
 
