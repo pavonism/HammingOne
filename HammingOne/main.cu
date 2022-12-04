@@ -36,9 +36,9 @@ int main(int argc, char** argv)
 	MeasureStop(&start, &stop);
 
 	MeasureStart(&start, "Calculating pairs...\n");
-	long result = thrust::reduce(thrust::device, dataSource.dev_results, dataSource.dev_results + dataSource.GetSize(), 0);
+	uint64_t result = thrust::reduce(thrust::device, dataSource.dev_results, dataSource.dev_results + dataSource.GetSize(), (uint64_t)0);
 	MeasureStop(&start, &stop);
-	printf("Number of pairs: %d\n", result);
+	printf("Number of pairs: %llu\n", result);
 
 	if(args.showPairs)
 		dataSource.PrintPairs();
