@@ -20,10 +20,10 @@ int main(int argc, char** argv)
 	if (args.showPairs)
 		dataSource.AllocatePairs();
 	
-	int blockCount = ceil((double)dataSource.GetSize() / 1024);
+	int blockCount = ceil((double)dataSource.GetSize() / THREADS_PER_BLOCK);
 
 	MeasureStart(&start, "Calculating on device...\n");
-	compareKernel << <blockCount, 1024 >> > (dataSource.dev_coalesced, dataSource.GetSize(), dataSource.GetLength(), dataSource.dev_results, dataSource.dev_pairs, dataSource.GetPairsLength());
+	compareKernel << <blockCount, THREADS_PER_BLOCK >> > (dataSource.dev_coalesced, dataSource.GetSize(), dataSource.GetLength(), dataSource.dev_results, dataSource.dev_pairs, dataSource.GetPairsLength());
 	auto cudaStatus = cudaGetLastError();
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));

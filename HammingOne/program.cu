@@ -4,26 +4,25 @@ void CheckArguments(int argc, char** argv) {
 
 	if (argc < MIN_ARGUMENTS || argc > MAX_ARGUMENTS)
 		ExitWithWrongNumberOfArgs(argv[0]);
-
-	if (argc >= ARG_SHOW_PAIRS_NUMBER && strcmp(argv[ARG_SHOW_PAIRS_NUMBER], ARG_SHOW_PAIRS) != 0)
-		ExitWithWrongArgs(argv[0], argv[ARG_SHOW_PAIRS_NUMBER]);
-
-	if (argc >= ARG_SHOW_CPU_NUMBER && strcmp(argv[ARG_SHOW_CPU_NUMBER], ARG_SHOW_CPU) != 0)
-		ExitWithWrongArgs(argv[0], argv[ARG_SHOW_CPU_NUMBER]);
 }
 
 arguments_t InitializeArguments(int argc, char** argv) {
 
-	arguments_t args = { argv[1], false, false};
+	arguments_t args = { argv[1], false, false };
 
-	if (argc < 3)
-		return args;
-	args.showPairs = true;
-	
-	if (argc < 4)
-		return args;
+	for (size_t i = 2; i < argc; i++)
+	{
+		if (strcmp(argv[i], ARG_SHOW_PAIRS) == 0) {
+			args.showPairs = true;
+		}
+		else if (strcmp(argv[i], ARG_SHOW_CPU) == 0) {
+			args.showCPUOutput = true;
+		}
+		else {
+			ExitWithWrongArgs(argv[0], argv[i]);
+		}
+	}
 
-	args.showCPUOutput = true;
 
 	return args;
 }
@@ -36,7 +35,7 @@ void PrintUsage(FILE* dest, char* programName) {
 void ExitByReason(char* programName, char* message) {
 	fprintf(stderr, message);
 	PrintUsage(stderr, programName);
-	exit(1);
+	exit(EXIT_FAILURE);
 }
 
 void ExitWithWrongNumberOfArgs(char* programName) {

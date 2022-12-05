@@ -122,7 +122,7 @@ void DataOperator::ReadDataFromFile(char* path) {
 
 	while (fgetc(file) != '\n');
 
-	AllocateVectors(vectorsCount, ceil((double)vectorLength / 32));
+	AllocateVectors(vectorsCount, ceil((double)vectorLength / WORD_SIZE));
 	char* currentVectorBits = new char[vectorLength + 1];
 
 	for (int i = 0; i < vectorsCount; i++)
@@ -132,26 +132,26 @@ void DataOperator::ReadDataFromFile(char* path) {
 		if (size != vectorLength + 1)
 			ExitWrongFile();
 
-		for (currentLength = 0; currentLength < vectorLength; currentLength+=32)
+		for (currentLength = 0; currentLength < vectorLength; currentLength += WORD_SIZE)
 		{
 			uint_fast32_t word = 0;
 
-			for (int bit = 0; bit < 32; bit++)
+			for (int bit = 0; bit < WORD_SIZE; bit++)
 			{
 				if (currentVectorBits[currentLength + bit] == '1')
-					word = word | (1 << (32 - bit - 1));
+					word = word | (1 << (WORD_SIZE - bit - 1));
 			}
 			this->vectors[vectorsIt++] = word;
 		}
 
-		int lastBits = currentLength % 32;
+		int lastBits = currentLength % WORD_SIZE;
 		if (lastBits != 0) {
 			uint_fast32_t word = 0;
 
 			for (int bit = 0; bit < lastBits; bit++)
 			{
 				if (currentVectorBits[currentLength - lastBits + bit] == '1')
-					word = word | (1 << (32 - bit - 1));
+					word = word | (1 << (WORD_SIZE - bit - 1));
 			}
 
 			this->vectors[vectorsIt++] = word;
@@ -229,9 +229,9 @@ void DataOperator::PrintVector(int indx) {
 
 	for (size_t j = 0; j < length; j++)
 	{
-		for (size_t bit = 0; bit < 32; bit++)
+		for (size_t bit = 0; bit < WORD_SIZE; bit++)
 		{
-			printf("%d", (this->vectors[indx * length + j] >> (32 - bit - 1)) & 1);
+			printf("%d", (this->vectors[indx * length + j] >> (WORD_SIZE - bit - 1)) & 1);
 		}
 	}
 }

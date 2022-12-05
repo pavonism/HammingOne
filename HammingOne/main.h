@@ -20,22 +20,23 @@
 #include "data_operator.h"
 
 #pragma region Constants
-#define MAX_ARGUMENTS 3
+#define MAX_ARGUMENTS 4
 #define MIN_ARGUMENTS 2
 
 #define MSG_WRONG_ARG "Wrong argument: %s\n"
 #define MSG_WRONG_ARG_NUMBER "Wrong number of arguments!\n"
-#define MSG_DESC "Program finds pairs of vectors with Hamming distance equals one\n"
+#define MSG_DESC "Program finds pairs of vectors which Hamming distance equals one\n"
 #define MSG_USAGE "\
-Usage: %s <path> <optional: show-pairs> <optional: show-cpu>\n\
-path - path to a file with vectors \n\
-show-pairs - as a result show whole vectors, not only number of pairs\n\
-show-cpu - shows also a result calculated on host\n"
+Usage: %s <path> [-c] [-v]\n\
+path\t- path to a file with vectors \n\
+-c\t- shows also a result calculated on host\n\
+-v\t- as a result shows whole vectors, not only number of pairs\n"
 
-#define ARG_SHOW_PAIRS "show-pairs"
-#define ARG_SHOW_CPU "show-cpu"
+#define ARG_SHOW_PAIRS "-v"
+#define ARG_SHOW_CPU "-c"
 #define ARG_SHOW_PAIRS_NUMBER 3
 #define ARG_SHOW_CPU_NUMBER 4
+#define THREADS_PER_BLOCK 1024
 #pragma endregion Constants
 
 #pragma region Program Logic
