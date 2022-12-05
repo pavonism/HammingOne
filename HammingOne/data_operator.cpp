@@ -105,13 +105,12 @@ void DataOperator::AllocateVectors(int size, int length) {
 }
 
 void DataOperator::ReadDataFromFile(char* path) {
-	FILE* file = fopen(path, "r");
 	long vectorsCount = 0;
 	long vectorLength = 0;
-	long currentVector = 0;
 	long currentLength = 0;
-	size_t readBytes;
-
+	int vectorsIt = 0;
+	FILE* file = fopen(path, "r");
+	
 	if (file == NULL)
 		ExitWrongFile();
 
@@ -126,7 +125,6 @@ void DataOperator::ReadDataFromFile(char* path) {
 	AllocateVectors(vectorsCount, ceil((double)vectorLength / 32));
 	char* currentVectorBits = new char[vectorLength + 1];
 
-	int vectorsIt = 0;
 	for (int i = 0; i < vectorsCount; i++)
 	{
 		auto size = fread(currentVectorBits, sizeof(char), vectorLength + 1, file);
