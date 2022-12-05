@@ -5,7 +5,7 @@
 #include <random>
 
 #define MSG_WRONG_FILE_FORMAT "Wrong file format! Terminating...\n"
-#define FILE_BUFFER_LENGTH 1024
+#define FILE_BUFFER_LENGTH 100
 #define BYTE_LENGTH 8
 #define WORD_BIT_LENGTH sizeof(uint_fast32_t) * BYTE_LENGTH
 

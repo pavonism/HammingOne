@@ -1,4 +1,6 @@
 #include "data_operator.h"
+#include <stdio.h>
+#include <string>
 
 #pragma region Private
 
@@ -104,7 +106,6 @@ void DataOperator::AllocateVectors(int size, int length) {
 
 void DataOperator::ReadDataFromFile(char* path) {
 	FILE* file = fopen(path, "r");
-	char buf[FILE_BUFFER_LENGTH];
 	long vectorsCount = 0;
 	long vectorLength = 0;
 	long currentVector = 0;
@@ -114,76 +115,50 @@ void DataOperator::ReadDataFromFile(char* path) {
 	if (file == NULL)
 		ExitWrongFile();
 
-	// Read parameters 
-	readBytes = fread(buf, sizeof(char), FILE_BUFFER_LENGTH, file);
-	int seeker = 0;
-	int i = 0;
+	// Read parameters
+	auto ret = fscanf(file, "%d,%d%", &vectorsCount, &vectorLength);
+	
+	if(ret != 2)
+		ExitWrongFile();
 
-	// Vectors count
-	while (buf[i] != ',') i++;
-	buf[i] = '\0';
-	seeker = i + 1;
-	vectorsCount = atol(buf);
+	while (fgetc(file) != '\n');
 
-	// Vectors length
-	while (buf[i] != 0x0D && buf[i] != 0x0A) i++;
-	buf[i] = '\0';
-	vectorLength = atol(buf + seeker);
-
-	//printf("%ld, %ld\n", vectorsCount, vectorLength);
 	AllocateVectors(vectorsCount, ceil((double)vectorLength / 32));
 	char* currentVectorBits = new char[vectorLength + 1];
-	memset(currentVectorBits, 0, (vectorLength + 1) * sizeof(char));
-	seeker = i + 1;
-	long long vectorsIt = 0;
 
-	do {
+	int vectorsIt = 0;
+	for (int i = 0; i < vectorsCount; i++)
+	{
+		auto size = fread(currentVectorBits, sizeof(char), vectorLength + 1, file);
 
-		for (currentVector; currentVector < vectorsCount && seeker < readBytes;)
+		if (size != vectorLength + 1)
+			ExitWrongFile();
+
+		for (currentLength = 0; currentLength < vectorLength; currentLength+=32)
 		{
-			for (currentLength; currentLength < vectorLength && seeker < readBytes;)
+			uint_fast32_t word = 0;
+
+			for (int bit = 0; bit < 32; bit++)
 			{
-				if (buf[seeker] != 0x0D && buf[seeker] != 0x0A)
-					currentVectorBits[currentLength++] = buf[seeker];
-				seeker++;
-
-				if (currentLength % 32 == 0 && currentLength > 0) {
-
-					uint_fast32_t word = 0;
-
-					for (int bit = 0; bit < 32; bit++)
-					{
-						if (currentVectorBits[currentLength - 32 + bit] == '1')
-							word = word | (1 << (32 - bit - 1));
-					}
-
-					this->vectors[vectorsIt++] = word;
-				}
+				if (currentVectorBits[currentLength + bit] == '1')
+					word = word | (1 << (32 - bit - 1));
 			}
-			if (seeker < readBytes) {
-
-				int lastBits = currentLength % 32;
-				if (lastBits != 0) {
-					uint_fast32_t word = 0;
-
-					for (int bit = 0; bit < lastBits; bit++)
-					{
-						if (currentVectorBits[currentLength - lastBits + bit] == '1')
-							word = word | (1 << (32 - bit - 1));
-					}
-
-					this->vectors[vectorsIt++] = word;
-				}
-
-				currentLength = 0;
-				currentVector++;
-				memset(currentVectorBits, 0, vectorLength * sizeof(char));
-			}
+			this->vectors[vectorsIt++] = word;
 		}
 
-		seeker = 0;
+		int lastBits = currentLength % 32;
+		if (lastBits != 0) {
+			uint_fast32_t word = 0;
 
-	} while ((readBytes = fread(buf, sizeof(char), FILE_BUFFER_LENGTH, file)) > 0);
+			for (int bit = 0; bit < lastBits; bit++)
+			{
+				if (currentVectorBits[currentLength - lastBits + bit] == '1')
+					word = word | (1 << (32 - bit - 1));
+			}
+
+			this->vectors[vectorsIt++] = word;
+		}
+	}
 
 	delete[] currentVectorBits;
 	fclose(file);
